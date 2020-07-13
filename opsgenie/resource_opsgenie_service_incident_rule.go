@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/alert"
 	"github.com/opsgenie/opsgenie-go-sdk-v2/og"
+	"github.com/opsgenie/opsgenie-go-sdk-v2/policy"
 	"strconv"
 
 	"log"
@@ -34,31 +35,17 @@ func resourceOpsGenieServiceIncidentRule() *schema.Resource {
 			},
 		},
 		Schema: map[string]*schema.Schema{
-			"name": {
+			"service_id": {
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.StringLenBetween(1, 512),
+				ValidateFunc: validation.StringLenBetween(1, 130),
 			},
-			"team_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"enabled": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  true,
-			},
-			"policy_description": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringLenBetween(1, 512),
-			},
-			"filter": {
+			"incident_rule": {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"type": {
+						"condition_match_type": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							Default:      "match-all",
@@ -73,8 +60,8 @@ func resourceOpsGenieServiceIncidentRule() *schema.Resource {
 										Type:     schema.TypeString,
 										Required: true,
 										ValidateFunc: validation.StringInSlice([]string{
-											"message", "alias", "description", "source", "entity", "tags",
-											"actions", "details", "extra-properties", "recipients", "teams", "priority",
+											"message", "description", "tags",
+											"extra-properties", "recipients", "teams", "priority",
 										}, false),
 									},
 									"operation": {
@@ -85,11 +72,6 @@ func resourceOpsGenieServiceIncidentRule() *schema.Resource {
 											"contains-value", "greater-than", "less-than", "is-empty", "equals-ignore-whitespace",
 										}, false),
 									},
-									"key": {
-										Type:        schema.TypeString,
-										Optional:    true,
-										Description: "If 'field' is set as 'extra-properties', key could be used for key-value pair",
-									},
 									"not": {
 										Type:        schema.TypeBool,
 										Optional:    true,
@@ -97,243 +79,94 @@ func resourceOpsGenieServiceIncidentRule() *schema.Resource {
 										Default:     false,
 									},
 									"expected_value": {
-										Type:        schema.TypeString,
-										Optional:    true,
-										Description: "User defined value that will be compared with alert field according to the operation. Default value is empty string",
-									},
-									"order": {
-										Type:        schema.TypeInt,
-										Optional:    true,
-										Description: "Order of the condition in conditions list",
+										Type:         schema.TypeString,
+										Optional:     true,
+										Description:  "User defined value that will be compared with alert field according to the operation. Default value is empty string",
+										ValidateFunc: validation.StringLenBetween(1, 15000),
 									},
 								},
 							},
 						},
-					},
-				},
-			},
-			"time_restriction": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"time-of-day", "weekday-and-time-of-day"}, false),
-						},
-						"restrictions": {
+						"incident_properties": {
 							Type:     schema.TypeList,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"start_day": {
-										Type:     schema.TypeString,
-										Required: true,
-									},
-									"end_day": {
-										Type:     schema.TypeString,
-										Required: true,
-									},
-									"start_hour": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"start_min": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"end_hour": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"end_min": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-								},
-							},
-						},
-						"restriction": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"start_hour": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"start_min": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"end_hour": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-									"end_min": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			"message": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"continue_policy": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"alias": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "{{alias}}",
-			},
-			"alert_description": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"entity": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "{{entity}}",
-			},
-			"source": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "{{source}}",
-			},
-			"ignore_original_actions": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"actions": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"ignore_original_details": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"details": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"ignore_original_responders": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"responders": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"user", "team"}, false),
-						},
-						"name": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"id": {
-							Type:     schema.TypeString,
 							Required: true,
-						},
-						"username": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"message": {
+										Type:         schema.TypeString,
+										Required:     true,
+										ValidateFunc: validation.StringLenBetween(1, 130),
+									},
+									"tags": {
+										Type:     schema.TypeList,
+										Optional: true,
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
+									},
+									"details": {
+										Type:     schema.TypeList,
+										Optional: true,
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
+									},
+									"description": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										ValidateFunc: validation.StringLenBetween(1, 10000),
+									},
+									"priority": {
+										Type:         schema.TypeString,
+										Required:     true,
+										ValidateFunc: validation.StringInSlice([]string{"P1", "P2", "P3", "P4", "P5"}, false),
+									},
+									"stakeholder_properties": {
+										Type:     schema.TypeList,
+										Required: true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"enable": {
+													Type:     schema.TypeBool,
+													Optional: true,
+													Default:  true,
+												},
+												"message": {
+													Type:     schema.TypeString,
+													Required: true,
+												},
+												"description": {
+													Type:         schema.TypeString,
+													Optional:     true,
+													ValidateFunc: validation.StringLenBetween(1, 15000),
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
-			},
-			"ignore_original_tags": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-			"tags": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"priority": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"P1", "P2", "P3", "P4", "P5"}, false),
 			},
 		},
 	}
 }
 
 func resourceOpsGenieServiceIncidentRuleCreate(d *schema.ResourceData, meta interface{}) error {
-	client, err := policy.NewClient(meta.(*OpsgenieClient).client.Config)
+	client, err := service.NewClient(meta.(*OpsgenieClient).client.Config)
 	if err != nil {
 		return err
 	}
 
-	message := d.Get("message").(string)
-	continue_policy := d.Get("continue_policy").(bool)
-	alias := d.Get("alias").(string)
-	alert_description := d.Get("alert_description").(string)
-	entity := d.Get("entity").(string)
-	source := d.Get("source").(string)
-	ignore_original_actions := d.Get("ignore_original_actions").(bool)
-	ignore_original_details := d.Get("ignore_original_details").(bool)
-	ignore_original_responders := d.Get("ignore_original_responders").(bool)
-	ignore_original_tags := d.Get("ignore_original_tags").(bool)
-	priority := d.Get("priority").(string)
-
-	createRequest := &policy.CreateIncidentRuleRequest{
-		MainFields:               *expandOpsGenieServiceIncidentRuleRequestMainFields(d),
-		Message:                  message,
-		Continue:                 &continue_policy,
-		Alias:                    alias,
-		AlertDescription:         alert_description,
-		Entity:                   entity,
-		Source:                   source,
-		IgnoreOriginalDetails:    &ignore_original_actions,
-		IgnoreOriginalActions:    &ignore_original_details,
-		IgnoreOriginalResponders: &ignore_original_responders,
-		IgnoreOriginalTags:       &ignore_original_tags,
-		Priority:                 alert.Priority(priority),
+	service_id := d.Get("service_id").(string)
+	createRequest := &service.CreateIncidentRuleRequest{
+		ServiceId: service_id,
 	}
+	createRequest.ConditionMatchType, createRequest.Conditions = expandOpsGenieServiceIncidentRuleRequestConditions(d)
+	createRequest.IncidentProperties = expandOpsGenieServiceIncidentRuleRequestIncidentProperties(d)
 
-	if len(d.Get("responders").([]interface{})) > 0 {
-		createRequest.Responders = expandOpsGenieServiceIncidentRuleResponders(d)
-	}
-
-	if len(d.Get("actions").([]interface{})) > 0 {
-		createRequest.Actions = flattenOpsgenieServiceIncidentRuleActions(d)
-	}
-
-	if len(d.Get("details").([]interface{})) > 0 {
-		createRequest.Details = flattenOpsgenieServiceIncidentRuleDetailsCreate(d)
-	}
-
-	if len(d.Get("tags").([]interface{})) > 0 {
-		createRequest.Tags = flattenOpsgenieServiceIncidentRuleTags(d)
-	}
-
-	log.Printf("[INFO] Creating Alert Policy '%s'", d.Get("name").(string))
+	log.Printf("[INFO] Creating OpsGenie Service Incident Rule for service '%s'", d.Get("service_id").(string))
 	result, err := client.CreateIncidentRule(context.Background(), createRequest)
 	if err != nil {
 		return err
@@ -341,36 +174,37 @@ func resourceOpsGenieServiceIncidentRuleCreate(d *schema.ResourceData, meta inte
 
 	d.SetId(result.Id)
 
-	return resourceOpsGenieServiceIncidentRuleRead(d, meta)
+	return nil
+	//return resourceOpsGenieServiceIncidentRuleRead(d, meta)
 }
 
 func resourceOpsGenieServiceIncidentRuleRead(d *schema.ResourceData, meta interface{}) error {
-	client, err := policy.NewClient(meta.(*OpsgenieClient).client.Config)
+	client, err := service.NewClient(meta.(*OpsgenieClient).client.Config)
 	if err != nil {
 		return err
 	}
-	name := d.Get("name").(string)
+	service_id := d.Get("service_id").(string)
+	incident_rule_id := d.ID()
 
-	log.Printf("[INFO] Reading OpsGenie Alert Policy '%s'", name)
+	log.Printf("[INFO] Reading OpsGenie Service Incident Rule for service '%s'", service_id)
 
-	policyRes := &policy.GetIncidentRulesResult{}
-	if d.Get("team_id").(string) == "" {
-		policyRes, err = client.GetIncidentRules(context.Background(), &policy.GetIncidentRuleRequest{
-			Id: d.Id(),
-		})
-	} else {
-		policyRes, err = client.GetIncidentRules(context.Background(), &policy.GetIncidentRuleRequest{
-			Id:     d.Id(),
-			TeamId: d.Get("team_id").(string),
-		})
-	}
+	incident_rule_res, err := client.GetIncidentRules(context.Background(), &service.GetIncidentRuleRequest{
+		ServiceId: service_id,
+	})
 	if err != nil {
 		x := err.(*ogClient.ApiError)
 		if x.StatusCode == 404 {
-			log.Printf("[WARN] Removing Alert Policy because it's gone %s", name)
+			log.Printf("[WARN] Removing Service Incident Rule because it's gone %s", name)
 			d.SetId("")
 			return nil
 		}
+	}
+
+	for _, v := range incident_rule_res.IncidentRule {
+		if v.Id == incident_rule_id {
+
+		}
+
 	}
 	d.Set("name", policyRes.Name)
 	d.Set("enabled", policyRes.Enabled)
@@ -491,70 +325,16 @@ func resourceOpsGenieServiceIncidentRuleDelete(d *schema.ResourceData, meta inte
 	return nil
 }
 
-func expandOpsGenieServiceIncidentRuleRequestMainFields(d *schema.ResourceData) *policy.MainFields {
-	enabled := d.Get("enabled").(bool)
-	fields := policy.MainFields{
-		Name:              d.Get("name").(string),
-		Enabled:           &enabled,
-		PolicyDescription: d.Get("policy_description").(string),
-		TeamId:            d.Get("team_id").(string),
-	}
-	if len(d.Get("filter").([]interface{})) > 0 {
-		fields.Filter = expandOpsGenieServiceIncidentRuleFilter(d.Get("filter").([]interface{}))
-	}
-	if len(d.Get("time_restriction").([]interface{})) > 0 {
-		fields.TimeRestriction = expandOpsGenieServiceIncidentRuleTimeRestriction(d.Get("time_restriction").([]interface{}))
-	}
-	return &fields
-}
+func expandOpsGenieServiceIncidentRuleRequestConditions(d *schema.ResourceData) (og.ConditionMatchType, []og.Condition) {
 
-func expandOpsGenieServiceIncidentRuleResponders(d *schema.ResourceData) *[]alert.Responder {
-	input := d.Get("responders").([]interface{})
-	responders := make([]alert.Responder, 0, len(input))
+	incident_rule := d.Get("incident_rule").(map[string]interface{})
+	input := incident_rule["conditions"].([]interface{})
 
-	if input == nil {
-		return &responders
-	}
-
-	for _, v := range input {
-		config := v.(map[string]interface{})
-		responderID := config["id"].(string)
-		name := config["name"].(string)
-		username := config["username"].(string)
-
-		responder := alert.Responder{
-			Type:     alert.ResponderType(config["type"].(string)),
-			Id:       responderID,
-			Name:     name,
-			Username: username,
-		}
-
-		responders = append(responders, responder)
-	}
-
-	return &responders
-}
-
-func expandOpsGenieServiceIncidentRuleFilter(input []interface{}) *og.Filter {
-	filter := og.Filter{}
-
-	if input == nil {
-		return &filter
-	}
-
-	for _, v := range input {
-		config := v.(map[string]interface{})
-		filter.ConditionMatchType = og.ConditionMatchType(config["type"].(string))
-		filter.Conditions = expandOpsGenieServiceIncidentRuleFilterConditions(config["conditions"].([]interface{}))
-	}
-	return &filter
-}
-
-func expandOpsGenieServiceIncidentRuleFilterConditions(input []interface{}) []og.Condition {
+	condition_match_type := og.ConditionMatchType(incident_rule["condition_match_type"].(string))
 	conditions := make([]og.Condition, 0, len(input))
 	condition := og.Condition{}
 	if input == nil {
-		return conditions
+		return condition_match_type, conditions
 	}
 
 	for _, v := range input {
@@ -569,141 +349,56 @@ func expandOpsGenieServiceIncidentRuleFilterConditions(input []interface{}) []og
 		condition.Order = &order
 		conditions = append(conditions, condition)
 	}
-	return conditions
+
+	return condition_match_type, conditions
 }
 
-func expandOpsGenieServiceIncidentRuleTimeRestriction(d []interface{}) *og.TimeRestriction {
-	timeRestriction := og.TimeRestriction{}
-	for _, v := range d {
-		config := v.(map[string]interface{})
-		timeRestriction.Type = og.RestrictionType(config["type"].(string))
-		if len(config["restrictions"].([]interface{})) > 0 {
-			restrictionList := make([]og.Restriction, 0, len(config["restrictions"].([]interface{})))
-			for _, v := range config["restrictions"].([]interface{}) {
-				config := v.(map[string]interface{})
-				startHour := uint32(config["start_hour"].(int))
-				startMin := uint32(config["start_min"].(int))
-				endHour := uint32(config["end_hour"].(int))
-				endMin := uint32(config["end_min"].(int))
-				restriction := og.Restriction{
-					StartDay:  og.Day(config["start_day"].(string)),
-					StartHour: &startHour,
-					StartMin:  &startMin,
-					EndHour:   &endHour,
-					EndDay:    og.Day(config["end_day"].(string)),
-					EndMin:    &endMin,
-				}
-				restrictionList = append(restrictionList, restriction)
-			}
-			timeRestriction.RestrictionList = restrictionList
-		} else {
-			restriction := og.Restriction{}
-			for _, v := range config["restriction"].([]interface{}) {
-				config := v.(map[string]interface{})
-				startHour := uint32(config["start_hour"].(int))
-				startMin := uint32(config["start_min"].(int))
-				endHour := uint32(config["end_hour"].(int))
-				endMin := uint32(config["end_min"].(int))
-				restriction = og.Restriction{
-					StartHour: &startHour,
-					StartMin:  &startMin,
-					EndHour:   &endHour,
-					EndMin:    &endMin,
-				}
-			}
+func expandOpsGenieServiceIncidentRuleRequestIncidentProperties(d *schema.ResourceData) []og.Condition {
 
-			timeRestriction.Restriction = restriction
-		}
-	}
-	return &timeRestriction
-}
+	incident_rule := d.Get("incident_rule").(map[string]interface{})
+	input := incident_rule["incident_properties"].([]interface{})
 
-func flattenOpsGenieServiceIncidentRuleDuration(input *policy.Duration) []map[string]interface{} {
-	output := make([]map[string]interface{}, 0, 1)
-	element := make(map[string]interface{})
-	element["time_amount"] = input.TimeAmount
-	element["time_unit"] = input.TimeUnit
-	output = append(output, element)
-	return output
-}
+	incident_properties := service.IncidentProperties{}
 
-func flattenOpsGenieServiceIncidentRuleResponders(input *[]alert.Responder) []map[string]interface{} {
-	output := make([]map[string]interface{}, 0, len(*input))
-	for _, v := range *input {
-		element := make(map[string]interface{})
-		element["name"] = v.Name
-		element["id"] = v.Id
-		element["username"] = v.Username
-		element["type"] = v.Type
-		output = append(output, element)
-	}
-
-	return output
-}
-
-func flattenOpsGenieServiceIncidentRuleFilter(input *og.Filter) []map[string]interface{} {
-	output := make([]map[string]interface{}, 0, 1)
-	element := make(map[string]interface{})
-	if input.Conditions != nil {
-		element["conditions"] = flattenOpsGenieServiceIncidentRuleFilterConditions(input.Conditions)
-	}
-	element["type"] = input.ConditionMatchType
-	output = append(output, element)
-
-	return output
-}
-
-func flattenOpsGenieServiceIncidentRuleFilterConditions(input []og.Condition) []map[string]interface{} {
-	output := make([]map[string]interface{}, 0, len(input))
 	for _, v := range input {
-		element := make(map[string]interface{})
-		element["field"] = v.Field
-		element["operation"] = v.Operation
-		element["key"] = v.Key
-		element["not"] = v.IsNot
-		element["expected_value"] = v.ExpectedValue
-		element["order"] = v.Order
-		output = append(output, element)
-	}
+		config := v.(map[string]interface{})
+		incident_properties.Message = config["message"].(string)
 
-	return output
-}
-
-func flattenOpsgenieServiceIncidentRuleTimeRestriction(input *og.TimeRestriction) []map[string]interface{} {
-	output := make([]map[string]interface{}, 0, 1)
-	element := make(map[string]interface{})
-	if len(input.RestrictionList) > 0 {
-		restrictions := make([]map[string]interface{}, 0, len(input.RestrictionList))
-		for _, r := range input.RestrictionList {
-			restrictionMap := make(map[string]interface{})
-			restrictionMap["start_min"] = r.StartMin
-			restrictionMap["start_hour"] = r.StartHour
-			restrictionMap["start_day"] = r.StartDay
-			restrictionMap["end_min"] = r.EndMin
-			restrictionMap["end_hour"] = r.EndHour
-			restrictionMap["end_day"] = r.EndDay
-			restrictions = append(restrictions, restrictionMap)
+		if len(config["tags"].([]interface{})) > 0 {
+			incident_properties.Tags = flattenOpsgenieServiceIncidentRuleRequestTags(config)
 		}
-		element["restrictions"] = restrictions
-	} else {
-		restriction := make([]map[string]interface{}, 0, 1)
-		restrictionMap := make(map[string]interface{})
-		restrictionMap["start_min"] = input.Restriction.StartMin
-		restrictionMap["start_hour"] = input.Restriction.StartHour
-		restrictionMap["end_min"] = input.Restriction.EndMin
-		restrictionMap["end_hour"] = input.Restriction.EndHour
-		restriction = append(restriction, restrictionMap)
-		element["restriction"] = restriction
+		if len(config["details"].([]interface{})) > 0 {
+			incident_properties.Details = flattenOpsgenieServiceIncidentRuleRequestDetails(config)
+		}
+
+		incident_properties.Description = config["description"].(string)
+		incident_properties.Priority = alert.Priority(config["priority"].(string))
+		incident_properties.StakeholderProperties = expandOpsGenieServiceIncidentRuleRequestStakeholderProperties(config["description"].([]interface{}))
 	}
-	element["type"] = input.Type
-	output = append(output, element)
-	return output
+
 }
 
-func flattenOpsgenieServiceIncidentRuleTags(d *schema.ResourceData) []string {
-	input := d.Get("tags").(*schema.Set)
-	tags := make([]string, len(input.List()))
+func expandOpsGenieServiceIncidentRuleRequestStakeholderProperties(input []interface{}) service.StakeholderProperties {
 
+	stakeholder_properties := service.StakeholderProperties{}
+	if input == nil {
+		return stakeholder_properties
+	}
+
+	for _, v := range input {
+		config := v.(map[string]interface{})
+		enable := config["enable"].(bool)
+		stakeholder_properties.Enable = &enable
+		stakeholder_properties.Message = config["message"].(string)
+		stakeholder_properties.Description = config["description"].(string)
+	}
+
+	return stakeholder_properties
+}
+
+func flattenOpsgenieServiceIncidentRuleRequestTags(input_map map[string]interface{}) []string {
+	input := input_map.Get("tags").(*schema.Set)
+	tags := make([]string, len(input.List()))
 	if input == nil {
 		return tags
 	}
@@ -711,28 +406,12 @@ func flattenOpsgenieServiceIncidentRuleTags(d *schema.ResourceData) []string {
 	for k, v := range input.List() {
 		tags[k] = v.(string)
 	}
-
 	return tags
 }
 
-func flattenOpsgenieServiceIncidentRuleActions(d *schema.ResourceData) []string {
-	input := d.Get("actions").(*schema.Set)
-	actions := make([]string, len(input.List()))
-
-	if input == nil {
-		return actions
-	}
-
-	for k, v := range input.List() {
-		actions[k] = v.(string)
-	}
-
-	return actions
-}
-
-func flattenOpsgenieServiceIncidentRuleDetailsCreate(d *schema.ResourceData) []string {
-	input := d.Get("details").(*schema.Set)
-	details := make([]string, len(input.List()))
+func flattenOpsgenieServiceIncidentRuleRequestDetails(input_map map[string]interface{}) map[string]string {
+	input := input_map.Get("details").(*schema.Set)
+	details := make(map[string]string)
 
 	if input == nil {
 		return details
@@ -741,22 +420,5 @@ func flattenOpsgenieServiceIncidentRuleDetailsCreate(d *schema.ResourceData) []s
 	for k, v := range input.List() {
 		details[k] = v.(string)
 	}
-
-	return details
-}
-
-func flattenOpsgenieServiceIncidentRuleDetailsUpdate(d *schema.ResourceData) map[string]interface{} {
-	input := d.Get("details").(*schema.Set)
-	details := make(map[string]interface{}, len(input.List()))
-
-	if input == nil {
-		return details
-	}
-
-	for k, v := range input.List() {
-		index := strconv.Itoa(k)
-		details[index] = v
-	}
-
 	return details
 }
